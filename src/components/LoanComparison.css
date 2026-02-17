@@ -1,0 +1,230 @@
+.comparison-container {
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+}
+
+.comparison-container h3 {
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.comparison-subtitle {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.loans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.loan-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.loan-card.best {
+  border-color: #52c41a;
+  background: #f6ffed;
+}
+
+.best-badge {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: #52c41a;
+  color: white;
+  padding: 3px 10px;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.loan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.loan-name-input {
+  flex: 1;
+  padding: 8px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  background: transparent;
+}
+
+.loan-name-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.remove-loan {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 5px;
+  transition: color 0.3s ease;
+}
+
+.remove-loan:hover {
+  color: #f44336;
+}
+
+.loan-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.loan-inputs .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.loan-inputs .input-group label {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.loan-inputs .input-group input {
+  padding: 8px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.loan-inputs .input-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.loan-results {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.result-label {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.result-value {
+  font-weight: 600;
+  color: #333;
+}
+
+.result-value.highlight {
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.savings-indicator {
+  text-align: center;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.savings-positive {
+  color: #52c41a;
+}
+
+.savings-negative {
+  color: #f44336;
+}
+
+.add-loan-btn {
+  width: 100%;
+  padding: 15px;
+  background: transparent;
+  border: 2px dashed #667eea;
+  border-radius: 10px;
+  color: #667eea;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+}
+
+.add-loan-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  border-style: solid;
+}
+
+.comparison-summary {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.comparison-summary h4 {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.stat-value.highlight {
+  color: #52c41a;
+}
+
+@media (max-width: 768px) {
+  .summary-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
