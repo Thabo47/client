@@ -1,796 +1,612 @@
 import React, { useState, useEffect } from 'react';
-import './LoanApplicationForm.css';
 
-const LoanApplicationForm = ({ onSubmit, isSubmitting }) => {
+function LoanApplicationForm({ onSubmit, prefilledAmount = null, selectedProduct = null }) {
   const [formData, setFormData] = useState({
     age: '',
-    employment: 'employed',
+    employment: 'full_time',
     income: '',
     expenses: '',
     creditScore: '',
-    existingDebt: '',
+    existingDebts: '',
     loanAmount: '',
-    loanPeriod: ''
+    repaymentPeriod: ''
   });
-
-  const [errors, setErrors] = useState({});
-  const [touchedFields, setTouchedFields] = useState({});
+  
+  const [touched, setTouched] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formProgress, setFormProgress] = useState(0);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [showProgressDetails, setShowProgressDetails] = useState(false);
-  const [validationSummary, setValidationSummary] = useState({});
+  const [validationErrors, setValidationErrors] = useState({});
 
-  const employmentTypes = [
-    { value: 'employed', label: 'Employed (Full Time)' },
-    { value: 'self_employed', label: 'Self Employed' },
-    { value: 'part_time', label: 'Part Time' },
-    { value: 'contract', label: 'Contract' }
-  ];
-
-  // Define form sections for step tracking
-  const formSteps = [
-    {
-      id: 1,
-      title: 'Personal Details',
-      fields: ['age', 'employment'],
-      icon: '👤',
-      description: 'Basic information about you'
-    },
-    {
-      id: 2,
-      title: 'Financial Overview',
-      fields: ['income', 'expenses'],
-      icon: '💰',
-      description: 'Your monthly income and expenses'
-    },
-    {
-      id: 3,
-      title: 'Credit History',
-      fields: ['creditScore', 'existingDebt'],
-      icon: '📊',
-      description: 'Your credit profile'
-    },
-    {
-      id: 4,
-      title: 'Loan Details',
-      fields: ['loanAmount', 'loanPeriod'],
-      icon: '🏦',
-      description: 'What you\'re applying for'
-    }
-  ];
-
-  // Real-time validation
+  // Prefill form when props change
   useEffect(() => {
-    const newValidationSummary = {};
+    if (prefilledAmount) {
+      setFormData(prev => ({
+        ...prev,
+        loanAmount: prefilledAmount
+      }));
+    }
     
-    // Age validation
-    if (formData.age) {
-      const age = parseInt(formData.age);
-      if (age < 18) newValidationSummary.age = '❌ Must be at least 18 years old';
-      else if (age > 65) newValidationSummary.age = '❌ Maximum age is 65';
-      else newValidationSummary.age = '✅ Age valid';
-    }
-
-    // Income vs Expenses validation
-    if (formData.income && formData.expenses) {
-      const income = parseFloat(formData.income);
-      const expenses = parseFloat(formData.expenses);
-      const disposable = income - expenses;
-      
-      if (expenses > income) {
-        newValidationSummary.affordability = '❌ Expenses exceed income';
-      } else if (disposable < income * 0.2) {
-        newValidationSummary.affordability = '⚠️ Low disposable income';
-      } else {
-        newValidationSummary.affordability = '✅ Healthy income-to-expense ratio';
+    if (selectedProduct) {
+      // You can prefill more fields based on the selected product
+      console.log('Selected product:', selectedProduct);
+      // Example: if selectedProduct has recommended term
+      if (selectedProduct.recommendedTerm) {
+        setFormData(prev => ({
+          ...prev,
+          repaymentPeriod: selectedProduct.recommendedTerm
+        }));
       }
     }
+  }, [prefilledAmount, selectedProduct]);
 
-    // Credit score indicator
-    if (formData.creditScore) {
-      const score = parseInt(formData.creditScore);
-      if (score >= 700) newValidationSummary.credit = '✅ Excellent credit';
-      else if (score >= 600) newValidationSummary.credit = '⚠️ Average credit';
-      else if (score >= 300) newValidationSummary.credit = '❌ Poor credit';
-    }
-
-    // Loan affordability preview
-    if (formData.loanAmount && formData.loanPeriod && formData.income) {
-      const monthlyPayment = parseFloat(formData.loanAmount) / (parseFloat(formData.loanPeriod) * 12);
-      const income = parseFloat(formData.income);
-      const paymentRatio = (monthlyPayment / income) * 100;
-      
-      if (paymentRatio > 40) {
-        newValidationSummary.loanAffordability = '⚠️ Monthly payment may be too high';
-      } else {
-        newValidationSummary.loanAffordability = '✅ Loan payment seems affordable';
-      }
-    }
-
-    setValidationSummary(newValidationSummary);
-  }, [formData]);
-
-  // Calculate form completion progress
+  // Calculate progress whenever form data changes
   useEffect(() => {
-    const requiredFields = ['age', 'income', 'expenses', 'creditScore', 'existingDebt', 'loanAmount', 'loanPeriod'];
-    const filledFields = requiredFields.filter(field => formData[field] && formData[field].toString().trim() !== '');
-    const progress = Math.round((filledFields.length / requiredFields.length) * 100);
-    setFormProgress(progress);
+    const filledFields = Object.values(formData).filter(val => val !== '').length;
+    const totalFields = Object.keys(formData).length;
+    setFormProgress(Math.round((filledFields / totalFields) * 100));
   }, [formData]);
 
-  // Calculate field completion status
-  const getFieldStatus = (fieldName) => {
-    const value = formData[fieldName];
-    const isFilled = value && value.toString().trim() !== '';
-    const hasError = errors[fieldName];
-    const isTouched = touchedFields[fieldName];
-
-    if (hasError && isTouched) return 'error';
-    if (isFilled && !hasError) return 'completed';
-    if (isTouched && !isFilled) return 'pending';
-    return 'incomplete';
-  };
-
-  // Get completion percentage for a section
-  const getSectionProgress = (section) => {
-    const fieldsInSection = section.fields;
-    const completedFields = fieldsInSection.filter(field => 
-      formData[field] && formData[field].toString().trim() !== '' && !errors[field]
-    ).length;
-    return Math.round((completedFields / fieldsInSection.length) * 100);
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    // Age validation
-    if (!formData.age) {
-      newErrors.age = 'Age is required';
-    } else {
-      const age = parseInt(formData.age);
-      if (isNaN(age) || age < 18 || age > 65) {
-        newErrors.age = 'Age must be between 18 and 65';
-      }
+  const validateField = (name, value) => {
+    const numValue = parseFloat(value);
+    
+    switch(name) {
+      case 'age':
+        if (value && (numValue < 18 || numValue > 70)) {
+          return 'Age must be between 18 and 70';
+        }
+        break;
+      case 'income':
+        if (value && numValue <= 0) {
+          return 'Income must be greater than 0';
+        }
+        break;
+      case 'expenses':
+        if (value && numValue < 0) {
+          return 'Expenses cannot be negative';
+        }
+        if (value && formData.income && numValue > parseFloat(formData.income)) {
+          return 'Expenses cannot exceed income';
+        }
+        break;
+      case 'creditScore':
+        if (value && (numValue < 300 || numValue > 850)) {
+          return 'Credit score must be between 300 and 850';
+        }
+        break;
+      case 'loanAmount':
+        if (value && numValue < 1000) {
+          return 'Minimum loan amount is M 1,000';
+        }
+        break;
+      case 'repaymentPeriod':
+        if (value && (numValue < 1 || numValue > 360)) {
+          return 'Repayment period must be between 1 and 360 months';
+        }
+        break;
+      default:
+        break;
     }
-
-    // Income validation
-    if (!formData.income) {
-      newErrors.income = 'Monthly income is required';
-    } else {
-      const income = parseFloat(formData.income);
-      if (isNaN(income) || income <= 0) {
-        newErrors.income = 'Monthly income must be greater than 0';
-      }
-    }
-
-    // Expenses validation
-    if (!formData.expenses) {
-      newErrors.expenses = 'Monthly expenses are required';
-    } else {
-      const expenses = parseFloat(formData.expenses);
-      if (isNaN(expenses) || expenses < 0) {
-        newErrors.expenses = 'Monthly expenses must be a valid number';
-      }
-    }
-
-    // Credit score validation
-    if (!formData.creditScore) {
-      newErrors.creditScore = 'Credit score is required';
-    } else {
-      const creditScore = parseInt(formData.creditScore);
-      if (isNaN(creditScore) || creditScore < 300 || creditScore > 850) {
-        newErrors.creditScore = 'Credit score must be between 300 and 850';
-      }
-    }
-
-    // Existing debt validation
-    if (!formData.existingDebt) {
-      newErrors.existingDebt = 'Existing debt is required';
-    } else {
-      const existingDebt = parseFloat(formData.existingDebt);
-      if (isNaN(existingDebt) || existingDebt < 0) {
-        newErrors.existingDebt = 'Existing debt must be a valid number';
-      }
-    }
-
-    // Loan amount validation
-    if (!formData.loanAmount) {
-      newErrors.loanAmount = 'Loan amount is required';
-    } else {
-      const loanAmount = parseFloat(formData.loanAmount);
-      if (isNaN(loanAmount) || loanAmount <= 0) {
-        newErrors.loanAmount = 'Loan amount must be greater than 0';
-      }
-    }
-
-    // Loan period validation
-    if (!formData.loanPeriod) {
-      newErrors.loanPeriod = 'Loan period is required';
-    } else {
-      const loanPeriod = parseInt(formData.loanPeriod);
-      if (isNaN(loanPeriod) || loanPeriod < 1 || loanPeriod > 30) {
-        newErrors.loanPeriod = 'Loan period must be between 1 and 30 years';
-      }
-    }
-
-    // Check if expenses exceed income
-    if (formData.income && formData.expenses) {
-      const income = parseFloat(formData.income);
-      const expenses = parseFloat(formData.expenses);
-      if (expenses > income) {
-        newErrors.expenses = 'Monthly expenses cannot exceed monthly income';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return '';
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Mark field as touched
-    setTouchedFields(prev => ({
-      ...prev,
-      [name]: true
-    }));
-
-    // Clear error for this field
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
+    // Validate field
+    const error = validateField(name, value);
+    setValidationErrors(prev => ({ ...prev, [name]: error }));
+    setError('');
   };
 
   const handleBlur = (e) => {
     const { name } = e.target;
-    setTouchedFields(prev => ({
-      ...prev,
-      [name]: true
-    }));
+    setTouched(prev => ({ ...prev, [name]: true }));
   };
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    const errors = {};
+    let isValid = true;
+
+    // Check all fields
+    Object.keys(formData).forEach(key => {
+      const error = validateField(key, formData[key]);
+      if (error) {
+        errors[key] = error;
+        isValid = false;
+      }
+    });
+
+    // Check if all fields are filled
+    const allFieldsFilled = Object.values(formData).every(val => val !== '');
+    if (!allFieldsFilled) {
+      setError('Please fill in all required fields');
+      isValid = false;
+    }
+
+    setValidationErrors(errors);
+    return isValid;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Mark all fields as touched for validation
-    const allFields = ['age', 'employment', 'income', 'expenses', 'creditScore', 'existingDebt', 'loanAmount', 'loanPeriod'];
-    const touched = {};
-    allFields.forEach(field => touched[field] = true);
-    setTouchedFields(touched);
-
-    if (validateForm()) {
-      // Convert string values to appropriate types before submitting
-      const processedData = {
-        age: parseInt(formData.age),
-        employment: formData.employment,
-        income: parseFloat(formData.income),
-        expenses: parseFloat(formData.expenses),
-        creditScore: parseInt(formData.creditScore),
-        existingDebt: parseFloat(formData.existingDebt),
-        loanAmount: parseFloat(formData.loanAmount),
-        loanPeriod: parseInt(formData.loanPeriod)
-      };
-      
-      onSubmit(processedData);
+    if (!validateForm()) {
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    // Convert string values to numbers
+    const numericData = {
+      age: parseInt(formData.age),
+      employment: formData.employment,
+      income: parseFloat(formData.income),
+      expenses: parseFloat(formData.expenses),
+      creditScore: parseInt(formData.creditScore),
+      existingDebts: parseFloat(formData.existingDebts),
+      loanAmount: parseFloat(formData.loanAmount),
+      repaymentPeriod: parseInt(formData.repaymentPeriod)
+    };
+    
+    try {
+      await onSubmit(numericData);
+    } catch (err) {
+      setError('Failed to submit application. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const goToStep = (step) => {
-    setCurrentStep(step);
+  // Calculate financial ratios in real-time
+  const calculateDTI = () => {
+    if (formData.income && formData.expenses && formData.existingDebts) {
+      const income = parseFloat(formData.income);
+      const expenses = parseFloat(formData.expenses);
+      const debts = parseFloat(formData.existingDebts);
+      
+      if (income > 0) {
+        const monthlyDebtPayment = debts * 0.03;
+        const totalObligations = expenses + monthlyDebtPayment;
+        const dti = (totalObligations / income) * 100;
+        return dti.toFixed(1);
+      }
+    }
+    return null;
   };
 
-  const isStepAccessible = (step) => {
-    if (step === 1) return true;
-    if (step === 2) return formData.age;
-    if (step === 3) return formData.income && formData.expenses;
-    if (step === 4) return formData.creditScore && formData.existingDebt;
-    return false;
+  const calculateLTI = () => {
+    if (formData.income && formData.loanAmount) {
+      const income = parseFloat(formData.income);
+      const loan = parseFloat(formData.loanAmount);
+      
+      if (income > 0) {
+        const annualIncome = income * 12;
+        const lti = (loan / annualIncome) * 100;
+        return lti.toFixed(1);
+      }
+    }
+    return null;
   };
 
-  const resetForm = () => {
-    setFormData({
-      age: '',
-      employment: 'employed',
-      income: '',
-      expenses: '',
-      creditScore: '',
-      existingDebt: '',
-      loanAmount: '',
-      loanPeriod: ''
-    });
-    setErrors({});
-    setTouchedFields({});
-    setCurrentStep(1);
-    setValidationSummary({});
+  const calculateDisposableIncome = () => {
+    if (formData.income && formData.expenses) {
+      const income = parseFloat(formData.income);
+      const expenses = parseFloat(formData.expenses);
+      return (income - expenses).toFixed(0);
+    }
+    return null;
   };
+
+  const dti = calculateDTI();
+  const lti = calculateLTI();
+  const disposableIncome = calculateDisposableIncome();
+
+  const getDTIStatus = () => {
+    if (!dti) return null;
+    const value = parseFloat(dti);
+    if (value <= 40) return { text: 'Good', color: '#28a745' };
+    if (value <= 50) return { text: 'Fair', color: '#ffc107' };
+    return { text: 'High', color: '#dc3545' };
+  };
+
+  const getLTIStatus = () => {
+    if (!lti) return null;
+    const value = parseFloat(lti);
+    if (value <= 300) return { text: 'Good', color: '#28a745' };
+    if (value <= 400) return { text: 'Fair', color: '#ffc107' };
+    return { text: 'High', color: '#dc3545' };
+  };
+
+  const dtiStatus = getDTIStatus();
+  const ltiStatus = getLTIStatus();
 
   return (
-    <div className="form-container">
-      <div className="form-header">
-        <h2>🏦 Loan Application Form</h2>
-        <p>Please fill in all the required information accurately for evaluation</p>
-      </div>
-
-      {/* Progress Tracking Section */}
-      <div className="progress-section">
-        <div className="progress-header">
-          <div className="progress-title">
-            <span className="progress-icon">📋</span>
-            <span>Application Progress</span>
-          </div>
-          <button 
-            className="progress-toggle"
-            onClick={() => setShowProgressDetails(!showProgressDetails)}
-            type="button"
-          >
-            {showProgressDetails ? 'Hide Details ▲' : 'Show Details ▼'}
-          </button>
-        </div>
-
-        {/* Main Progress Bar */}
-        <div className="progress-main">
-          <div className="progress-bar-container">
-            <div 
-              className="progress-bar-fill" 
-              style={{ width: `${formProgress}%` }}
-            />
-            <span className="progress-percentage">{formProgress}% Complete</span>
-          </div>
-        </div>
-
-        {/* Step Indicators */}
-        <div className="step-indicators">
-          {formSteps.map((step, index) => (
-            <div key={step.id} className="step-wrapper">
-              <button
-                type="button"
-                className={`step-button ${currentStep === step.id ? 'active' : ''} ${
-                  isStepAccessible(step.id) ? 'accessible' : 'locked'
-                }`}
-                onClick={() => isStepAccessible(step.id) && goToStep(step.id)}
-                disabled={!isStepAccessible(step.id)}
-              >
-                <span className="step-icon">{step.icon}</span>
-                <span className="step-number">Step {step.id}</span>
-                <span className="step-title">{step.title}</span>
-                <span className="step-progress">{getSectionProgress(step)}%</span>
-              </button>
-              {index < formSteps.length - 1 && (
-                <div className={`step-connector ${currentStep > step.id ? 'completed' : ''}`} />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Detailed Progress Panel */}
-        {showProgressDetails && (
-          <div className="progress-details">
-            <h4>Completion Details</h4>
-            <div className="details-grid">
-              {formSteps.map(step => (
-                <div key={step.id} className="detail-item">
-                  <div className="detail-header">
-                    <span className="detail-icon">{step.icon}</span>
-                    <span className="detail-title">{step.title}</span>
-                    <span className="detail-percentage">{getSectionProgress(step)}%</span>
-                  </div>
-                  <div className="detail-bar">
-                    <div 
-                      className="detail-bar-fill" 
-                      style={{ width: `${getSectionProgress(step)}%` }}
-                    />
-                  </div>
-                  <div className="detail-fields">
-                    {step.fields.map(field => (
-                      <div key={field} className={`field-status status-${getFieldStatus(field)}`}>
-                        <span className="field-name">
-                          {field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                        </span>
-                        <span className="field-indicator">
-                          {getFieldStatus(field) === 'completed' && '✓'}
-                          {getFieldStatus(field) === 'error' && '⚠️'}
-                          {getFieldStatus(field) === 'pending' && '○'}
-                          {getFieldStatus(field) === 'incomplete' && '○'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Quick Stats */}
-            <div className="quick-stats">
-              <div className="stat-badge">
-                <span className="stat-value">{formProgress}%</span>
-                <span className="stat-label">Overall</span>
-              </div>
-              <div className="stat-badge">
-                <span className="stat-value">
-                  {Object.values(formData).filter(v => v && v.toString().trim() !== '').length}
-                </span>
-                <span className="stat-label">Fields Filled</span>
-              </div>
-              <div className="stat-badge">
-                <span className="stat-value">
-                  {Object.keys(errors).length}
-                </span>
-                <span className="stat-label">Errors</span>
-              </div>
-              <div className="stat-badge">
-                <span className="stat-value">{currentStep}</span>
-                <span className="stat-label">Current Step</span>
-              </div>
-            </div>
-          </div>
+    <div className="card">
+      <h1 className="form-title">
+        Loan Application Form
+        {selectedProduct && (
+          <span style={{ 
+            display: 'block', 
+            fontSize: '1rem', 
+            color: '#FF6B35',
+            marginTop: '0.5rem'
+          }}>
+            Recommended: {selectedProduct.name}
+          </span>
         )}
+      </h1>
+      
+      {/* Progress Bar */}
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ 
+          height: '8px', 
+          background: '#e0e0e0', 
+          borderRadius: '4px',
+          overflow: 'hidden'
+        }}>
+          <div style={{ 
+            width: `${formProgress}%`, 
+            height: '100%',
+            background: 'linear-gradient(90deg, #FF6B35, #C41E3A)',
+            transition: 'width 0.3s ease'
+          }} />
+        </div>
+        <p style={{ textAlign: 'right', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+          Form completion: {formProgress}%
+        </p>
       </div>
-
-      {/* Validation Summary */}
-      {Object.keys(validationSummary).length > 0 && (
-        <div className="validation-summary">
-          <h4>Real-time Assessment:</h4>
-          {Object.entries(validationSummary).map(([key, value]) => (
-            <div key={key} className="validation-item">
-              {value}
-            </div>
-          ))}
+      
+      {error && (
+        <div style={{ 
+          background: '#f8d7da', 
+          color: '#721c24', 
+          padding: '1rem', 
+          borderRadius: '8px',
+          marginBottom: '1.5rem',
+          border: '1px solid #f5c6cb'
+        }}>
+          {error}
         </div>
       )}
-
-      {/* Current Step Indicator */}
-      <div className="current-step-badge">
-        Step {currentStep} of 4: {formSteps[currentStep - 1].title}
-      </div>
-
-      <form onSubmit={handleSubmit} className="loan-form">
-        {/* Step 1: Personal Details */}
-        <div className={`form-step ${currentStep === 1 ? 'active' : 'hidden'}`}>
-          <div className="step-content">
-            <h3>👤 Personal Details</h3>
-            <p className="step-description">Tell us about yourself</p>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="age">
-                  Age *
-                  <span className="field-hint">Must be between 18-65</span>
-                </label>
-                <input
-                  type="number"
-                  id="age"
-                  name="age"
-                  value={formData.age}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Enter your age"
-                  min="18"
-                  max="65"
-                  className={`${errors.age ? 'error' : ''} ${
-                    touchedFields.age && !errors.age && formData.age ? 'valid' : ''
-                  }`}
-                  disabled={isSubmitting}
-                />
-                {errors.age && <span className="error-message">{errors.age}</span>}
-                {touchedFields.age && !errors.age && formData.age && (
-                  <span className="success-message">✓ Age verified</span>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="employment">Employment Status *</label>
-                <select
-                  id="employment"
-                  name="employment"
-                  value={formData.employment}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  disabled={isSubmitting}
-                >
-                  {employmentTypes.map(type => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 2: Financial Overview */}
-        <div className={`form-step ${currentStep === 2 ? 'active' : 'hidden'}`}>
-          <div className="step-content">
-            <h3>💰 Financial Overview</h3>
-            <p className="step-description">Your monthly income and expenses</p>
-            
-            <div className="financial-summary">
-              {formData.income && formData.expenses && (
-                <div className="summary-card">
-                  <div className="summary-item">
-                    <span>Monthly Disposable Income:</span>
-                    <strong>
-                      R {(parseFloat(formData.income) - parseFloat(formData.expenses)).toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                        minimumFractionDigits: 2
-                      })}
-                    </strong>
-                  </div>
-                  <div className="summary-item">
-                    <span>Expense-to-Income Ratio:</span>
-                    <strong>
-                      {((parseFloat(formData.expenses) / parseFloat(formData.income)) * 100).toFixed(1)}%
-                    </strong>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="income">
-                  Monthly Income (ZAR) *
-                  <span className="field-hint">After tax</span>
-                </label>
-                <input
-                  type="number"
-                  id="income"
-                  name="income"
-                  value={formData.income}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Enter monthly income"
-                  min="0"
-                  step="100"
-                  className={`${errors.income ? 'error' : ''} ${
-                    touchedFields.income && !errors.income && formData.income ? 'valid' : ''
-                  }`}
-                  disabled={isSubmitting}
-                />
-                {errors.income && <span className="error-message">{errors.income}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="expenses">
-                  Monthly Expenses (ZAR) *
-                  <span className="field-hint">Rent, bills, etc.</span>
-                </label>
-                <input
-                  type="number"
-                  id="expenses"
-                  name="expenses"
-                  value={formData.expenses}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Enter monthly expenses"
-                  min="0"
-                  step="100"
-                  className={`${errors.expenses ? 'error' : ''} ${
-                    touchedFields.expenses && !errors.expenses && formData.expenses ? 'valid' : ''
-                  }`}
-                  disabled={isSubmitting}
-                />
-                {errors.expenses && <span className="error-message">{errors.expenses}</span>}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 3: Credit History */}
-        <div className={`form-step ${currentStep === 3 ? 'active' : 'hidden'}`}>
-          <div className="step-content">
-            <h3>📊 Credit History</h3>
-            <p className="step-description">Your credit profile information</p>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="creditScore">
-                  Credit Score *
-                  <span className="field-hint">300-850</span>
-                </label>
-                <input
-                  type="number"
-                  id="creditScore"
-                  name="creditScore"
-                  value={formData.creditScore}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Enter credit score"
-                  min="300"
-                  max="850"
-                  className={`${errors.creditScore ? 'error' : ''} ${
-                    touchedFields.creditScore && !errors.creditScore && formData.creditScore ? 'valid' : ''
-                  }`}
-                  disabled={isSubmitting}
-                />
-                {errors.creditScore && <span className="error-message">{errors.creditScore}</span>}
-                {formData.creditScore && !errors.creditScore && (
-                  <div className="score-indicator">
-                    <div className="score-labels">
-                      <span className={parseInt(formData.creditScore) < 600 ? 'poor' : ''}>Poor</span>
-                      <span className={parseInt(formData.creditScore) >= 600 && parseInt(formData.creditScore) < 700 ? 'average' : ''}>Fair</span>
-                      <span className={parseInt(formData.creditScore) >= 700 && parseInt(formData.creditScore) < 750 ? 'good' : ''}>Good</span>
-                      <span className={parseInt(formData.creditScore) >= 750 ? 'excellent' : ''}>Excellent</span>
-                    </div>
-                    <div className="score-bar">
-                      <div 
-                        className="score-marker" 
-                        style={{
-                          left: `${((parseInt(formData.creditScore) - 300) / 550) * 100}%`
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="existingDebt">
-                  Existing Debt (ZAR) *
-                  <span className="field-hint">Total outstanding loans</span>
-                </label>
-                <input
-                  type="number"
-                  id="existingDebt"
-                  name="existingDebt"
-                  value={formData.existingDebt}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Enter total existing debt"
-                  min="0"
-                  step="100"
-                  className={`${errors.existingDebt ? 'error' : ''} ${
-                    touchedFields.existingDebt && !errors.existingDebt && formData.existingDebt ? 'valid' : ''
-                  }`}
-                  disabled={isSubmitting}
-                />
-                {errors.existingDebt && <span className="error-message">{errors.existingDebt}</span>}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 4: Loan Details */}
-        <div className={`form-step ${currentStep === 4 ? 'active' : 'hidden'}`}>
-          <div className="step-content">
-            <h3>🏦 Loan Details</h3>
-            <p className="step-description">Tell us what you're applying for</p>
-            
-            <div className="loan-summary">
-              {formData.loanAmount && formData.loanPeriod && (
-                <div className="summary-card">
-                  <div className="summary-item">
-                    <span>Estimated Monthly Payment:</span>
-                    <strong>
-                      R {(parseFloat(formData.loanAmount) / (parseFloat(formData.loanPeriod) * 12)).toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                        minimumFractionDigits: 2
-                      })}
-                    </strong>
-                  </div>
-                  <div className="summary-item">
-                    <span>Total Repayment:</span>
-                    <strong>
-                      R {(parseFloat(formData.loanAmount) * 1.1).toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                        minimumFractionDigits: 2
-                      })}*
-                    </strong>
-                  </div>
-                  <small>*Estimated with 10% interest</small>
-                </div>
-              )}
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="loanAmount">
-                  Loan Amount Requested (ZAR) *
-                  <span className="field-hint">How much you need</span>
-                </label>
-                <input
-                  type="number"
-                  id="loanAmount"
-                  name="loanAmount"
-                  value={formData.loanAmount}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Enter requested loan amount"
-                  min="0"
-                  step="1000"
-                  className={`${errors.loanAmount ? 'error' : ''} ${
-                    touchedFields.loanAmount && !errors.loanAmount && formData.loanAmount ? 'valid' : ''
-                  }`}
-                  disabled={isSubmitting}
-                />
-                {errors.loanAmount && <span className="error-message">{errors.loanAmount}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="loanPeriod">
-                  Loan Period (Years) *
-                  <span className="field-hint">1-30 years</span>
-                </label>
-                <input
-                  type="number"
-                  id="loanPeriod"
-                  name="loanPeriod"
-                  value={formData.loanPeriod}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Enter loan period"
-                  min="1"
-                  max="30"
-                  className={`${errors.loanPeriod ? 'error' : ''} ${
-                    touchedFields.loanPeriod && !errors.loanPeriod && formData.loanPeriod ? 'valid' : ''
-                  }`}
-                  disabled={isSubmitting}
-                />
-                {errors.loanPeriod && <span className="error-message">{errors.loanPeriod}</span>}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Buttons */}
-        <div className="step-navigation">
-          {currentStep > 1 && (
-            <button 
-              type="button" 
-              className="prev-step-btn"
-              onClick={() => setCurrentStep(currentStep - 1)}
-              disabled={isSubmitting}
-            >
-              ← Previous Step
-            </button>
-          )}
+      
+      {/* Financial Overview Dashboard */}
+      {(dti || lti || disposableIncome) && (
+        <div style={{ 
+          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+          padding: '1.5rem', 
+          borderRadius: '10px',
+          marginBottom: '2rem',
+          border: '2px solid #FFB347',
+          boxShadow: '0 4px 10px rgba(255, 179, 71, 0.2)'
+        }}>
+          <h4 style={{ 
+            color: '#C41E3A', 
+            marginBottom: '1rem',
+            fontSize: '1.1rem',
+            borderBottom: '2px solid #FFB347',
+            paddingBottom: '0.5rem'
+          }}>
+            Financial Health Overview
+          </h4>
           
-          {currentStep < 4 && (
-            <button 
-              type="button" 
-              className="next-step-btn"
-              onClick={() => setCurrentStep(currentStep + 1)}
-              disabled={!isStepAccessible(currentStep + 1) || isSubmitting}
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            {dti && dtiStatus && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                  <span style={{ color: '#666' }}>Debt-to-Income Ratio</span>
+                  <span style={{ fontWeight: 'bold', color: dtiStatus.color }}>{dtiStatus.text}</span>
+                </div>
+                <div style={{ 
+                  height: '8px', 
+                  background: '#e0e0e0', 
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  marginBottom: '0.3rem'
+                }}>
+                  <div style={{ 
+                    width: `${Math.min(parseFloat(dti), 100)}%`, 
+                    height: '100%',
+                    background: dtiStatus.color,
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+                <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#C41E3A' }}>
+                  {dti}%
+                </p>
+              </div>
+            )}
+            
+            {lti && ltiStatus && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                  <span style={{ color: '#666' }}>Loan-to-Income Ratio</span>
+                  <span style={{ fontWeight: 'bold', color: ltiStatus.color }}>{ltiStatus.text}</span>
+                </div>
+                <div style={{ 
+                  height: '8px', 
+                  background: '#e0e0e0', 
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  marginBottom: '0.3rem'
+                }}>
+                  <div style={{ 
+                    width: `${Math.min((parseFloat(lti) / 5), 100)}%`, 
+                    height: '100%',
+                    background: ltiStatus.color,
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+                <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#C41E3A' }}>
+                  {lti}%
+                </p>
+              </div>
+            )}
+            
+            {disposableIncome && (
+              <div>
+                <span style={{ color: '#666' }}>Monthly Disposable Income</span>
+                <p style={{ 
+                  fontSize: '1.2rem', 
+                  fontWeight: 'bold',
+                  color: parseFloat(disposableIncome) > 0 ? '#28a745' : '#dc3545'
+                }}>
+                  M {parseInt(disposableIncome).toLocaleString()}
+                </p>
+                <p style={{ fontSize: '0.8rem', color: '#666' }}>
+                  After expenses
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>
+              Age <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <input
+              type="number"
+              name="age"
+              value={formData.age}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              required
+              min="18"
+              max="70"
+              placeholder="Enter your age"
+              style={{
+                borderColor: touched.age && validationErrors.age ? '#dc3545' : '#FF8C5A'
+              }}
+            />
+            {touched.age && validationErrors.age && (
+              <p style={{ color: '#dc3545', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                {validationErrors.age}
+              </p>
+            )}
+            <span className="input-hint">Minimum 18 years, Maximum 70 years</span>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Employment Status <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <select
+              name="employment"
+              value={formData.employment}
+              onChange={handleChange}
+              required
+              style={{
+                borderColor: '#FF8C5A'
+              }}
             >
-              Next Step →
-            </button>
+              <option value="full_time">Full Time</option>
+              <option value="part_time">Part Time</option>
+              <option value="self_employed">Self Employed</option>
+              <option value="unemployed">Unemployed</option>
+              <option value="retired">Retired</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Monthly Income (M) <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <input
+              type="number"
+              name="income"
+              value={formData.income}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              required
+              min="0"
+              step="100"
+              placeholder="Enter monthly income"
+              style={{
+                borderColor: touched.income && validationErrors.income ? '#dc3545' : '#FF8C5A'
+              }}
+            />
+            {touched.income && validationErrors.income && (
+              <p style={{ color: '#dc3545', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                {validationErrors.income}
+              </p>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label>
+              Monthly Expenses (M) <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <input
+              type="number"
+              name="expenses"
+              value={formData.expenses}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              required
+              min="0"
+              step="100"
+              placeholder="Enter monthly expenses"
+              style={{
+                borderColor: touched.expenses && validationErrors.expenses ? '#dc3545' : '#FF8C5A'
+              }}
+            />
+            {touched.expenses && validationErrors.expenses && (
+              <p style={{ color: '#dc3545', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                {validationErrors.expenses}
+              </p>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label>
+              Credit Score <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <input
+              type="number"
+              name="creditScore"
+              value={formData.creditScore}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              required
+              min="300"
+              max="850"
+              placeholder="Enter credit score"
+              style={{
+                borderColor: touched.creditScore && validationErrors.creditScore ? '#dc3545' : '#FF8C5A'
+              }}
+            />
+            {touched.creditScore && validationErrors.creditScore && (
+              <p style={{ color: '#dc3545', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                {validationErrors.creditScore}
+              </p>
+            )}
+            <span className="input-hint">Range: 300 (Poor) - 850 (Excellent)</span>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Existing Debts (M) <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <input
+              type="number"
+              name="existingDebts"
+              value={formData.existingDebts}
+              onChange={handleChange}
+              required
+              min="0"
+              step="100"
+              placeholder="Enter total existing debts"
+              style={{
+                borderColor: '#FF8C5A'
+              }}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>
+              Loan Amount (M) <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <input
+              type="number"
+              name="loanAmount"
+              value={formData.loanAmount}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              required
+              min="1000"
+              step="1000"
+              placeholder="Enter loan amount"
+              style={{
+                borderColor: touched.loanAmount && validationErrors.loanAmount ? '#dc3545' : '#FF8C5A',
+                background: prefilledAmount ? '#fff3cd' : 'white'
+              }}
+            />
+            {touched.loanAmount && validationErrors.loanAmount && (
+              <p style={{ color: '#dc3545', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                {validationErrors.loanAmount}
+              </p>
+            )}
+            {prefilledAmount && (
+              <p style={{ color: '#856404', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                Amount prefilled from calculator
+              </p>
+            )}
+            <span className="input-hint">Minimum: M 1,000</span>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Repayment Period (months) <span style={{ color: '#C41E3A' }}>*</span>
+            </label>
+            <input
+              type="number"
+              name="repaymentPeriod"
+              value={formData.repaymentPeriod}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              required
+              min="1"
+              max="360"
+              placeholder="Enter repayment period"
+              style={{
+                borderColor: touched.repaymentPeriod && validationErrors.repaymentPeriod ? '#dc3545' : '#FF8C5A'
+              }}
+            />
+            {touched.repaymentPeriod && validationErrors.repaymentPeriod && (
+              <p style={{ color: '#dc3545', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                {validationErrors.repaymentPeriod}
+              </p>
+            )}
+            <span className="input-hint">Maximum: 360 months (30 years)</span>
+          </div>
+        </div>
+
+        {/* Loan Summary */}
+        {formProgress === 100 && !error && (
+          <div style={{
+            background: '#d4edda',
+            color: '#155724',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            textAlign: 'center',
+            border: '1px solid #c3e6cb'
+          }}>
+            ✓ All fields completed. Ready to submit!
+          </div>
+        )}
+
+        <button 
+          type="submit" 
+          className="submit-btn"
+          disabled={loading || formProgress < 100 || Object.values(validationErrors).some(error => error)}
+          style={{
+            opacity: (loading || formProgress < 100 || Object.values(validationErrors).some(error => error)) ? 0.6 : 1,
+            cursor: (loading || formProgress < 100 || Object.values(validationErrors).some(error => error)) ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? (
+            <>
+              <span className="loading-spinner"></span>
+              Processing...
+            </>
+          ) : (
+            'Submit Application'
           )}
-        </div>
-
-        {/* Form Actions */}
-        <div className="form-actions">
-          <button 
-            type="submit" 
-            className="submit-btn"
-            disabled={isSubmitting || Object.keys(errors).length > 0}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Application'}
-          </button>
-          <button 
-            type="button" 
-            className="reset-btn"
-            onClick={resetForm}
-            disabled={isSubmitting}
-          >
-            Reset Form
-          </button>
-        </div>
+        </button>
       </form>
-
-      <div className="form-footer">
-        <p>* Required fields</p>
-        <p>All information is kept confidential and secure</p>
-        <p className="disclaimer">Final decision subject to verification and credit checks</p>
-      </div>
     </div>
   );
-};
+}
 
 export default LoanApplicationForm;
